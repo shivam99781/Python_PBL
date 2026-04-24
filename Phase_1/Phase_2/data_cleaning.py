@@ -48,7 +48,8 @@ for col in outlier_cols:
     lower = Q1 - 1.5 * IQR
     upper = Q3 + 1.5 * IQR
 
-    df = df[(df[col] >= lower) & (df[col] <= upper)]
+    df[col] = np.where(df[col] < lower, lower,
+              np.where(df[col] > upper, upper, df[col]))
 
 print("SHAPE AFTER OUTLIER REMOVAL:", df.shape)
 
@@ -81,18 +82,66 @@ df = pd.get_dummies(df, columns=['property_type'], drop_first=True)
 
 print("\nBOOLEAN TO INT")
 
-df["property_type_Villa"] = df["property_type_Villa"].astype(int)
-df["property_type_House"] = df["property_type_House"].astype(int)
+bool_cols = df.select_dtypes(include='bool').columns
+df[bool_cols] = df[bool_cols].astype(int)
 
 print(df[["property_type_Villa", "property_type_House"]].head())
 
 #  CORRELATION HEATMAP
 
 print(" GRAPH OF CORRELATION ")
+plt.figure(figsize=(10,6))
+corr = df.corr(numeric_only=True)
 
-plt.figure()
-corr = df.corr()
-
-sns.heatmap(corr, annot=False)
+sns.heatmap(corr, cmap="coolwarm")
 plt.title("Correlation Heatmap")
+plt.show()
+
+
+
+# REGRESSION MODEL
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+import matplotlib.pyplot as plt
+
+#  Separate data
+X = df.drop("price", axis=1)
+y = df["price"]
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Train model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Prediction
+y_pred = model.predict(X_test)
+
+# Result
+print("R2 Score:", r2_score(y_test, y_pred))
+print("MAE:", mean_absolute_error(y_test, y_pred))
+print("MSE:", mean_squared_error(y_test, y_pred))
+
+
+
+#  GRAPH (ACTUAL vs PREDICTED)
+plt.scatter(y_test, y_pred)
+plt.xlabel("Actual Price")
+plt.ylabel("Predicted Price")
+plt.title("Actual vs Predicted")
+plt.show()
+
+
+# GRAPH  (ERROR GRAPH)
+
+error = y_test - y_pred
+
+plt.scatter(y_test, error)
+plt.xlabel("Actual Price")
+plt.ylabel("Error")
+plt.title("Error Graph")
 plt.show()
